@@ -37,57 +37,37 @@ def rip(mesh, vert, face, up):
     
     if up:
         new_edges, new_verts = []
-        for e in face_edges:
+        for e in ext_edges:
             # TODO: check split location, should it be 0.0 or 1.0?
             new_edge, new_vert = bmesh.utils.edge_split(e, vert, 0.0)
             new_edges.append(new_edge)
             new_verts.append(new_vert)
             
+        # pointmerge doesn't return the new vertex (for some reason ?!)
+        # so we're instead creating new verts on the ext_edges
+        # so that we can return the original vert as the one that is to be moved
         bmesh.ops.pointmerge(new_verts, vert.co)
         
-        """
-        connect_edges = bmesh.ops.connect_vert_pair(mesh, [new_verts], False, False)['edges']
+        new_ext_edges = [e for e in vert.link_edges if e not in face_edges]
+        if len(new_ext_edges) != 1:
+            raise Exception('Rip Up pointmerge has incorrect edge count')
         
-        # TODO last parameter value, uvs?
-        bmesh.ops.collapse(bm, connect_edges, True)
-        """
-        
-        """
-        new_edges, new_verts = bmesh.ops.extrude(mesh, [vert], False)
-        new_edge = new_edges[0]
-        new_vert = new_verts[0]
-        
-        # connect ext verts to new vert, dissolve old ext_edges
-        # should we be using face_vert_separate, loop_separate, vert_separate?
-        for v in ext_verts:
-            # this splits the faces involved
-            bmesh.ops.connect_vert_pair(mesh, [v, new_vert], False, False)
-        # attempting to not break ext faces
-        for v in face_verts:
-            # TODO material and smooth settings here should ideally
-            # be taken from other adjacent faces
-            # is there another way to make these faces?
-            bmesh.ops.contextual_create(mesh, [v, vert, new_vert], -1, False)
-        
-        bmesh.ops.dissolve_edges(mesh, ext_edges, False, False)
-        """
-        
-        return new_vert
+        return vert
     else:
         new_edges, new_verts = []
         for e in ext_edges:
-            # this list comprehension syntax for flattening is obtuse
-            adjacent_face_edges = set(e for f in e.linked_faces for e in f.linked_edges)
-            update_edges = adjacent_face_edges & set(face_edges)
-                
-            # TODO: check split location, should it be 0.0 or 1.0?
             new_edge, new_vert = bmesh.utils.edge_split(e, vert, 0.0)
             new_edges.append(new_edge)
             new_verts.append(new_vert)
             
-            for e_update in update_edges:
-                face_vert = next(v for v in e_update.verts if v != vert)
-                bmesh.utils.face_split(mesh, [face_vert, new_vert], False, False)
+        # is this return accessed with ['edges']?
+        connect_verts = [v for v in new_verts] + face_verts
+        # what's the difference between connect_vert_pair and connect_verts?
+        # last parameter is so we don't split the target face
+        connecting_edges = bmesh.ops.connect_vert_pair(mesh, connect_verts, [], [face])
+        dissolve_success = bmesh.utils.vert_dissolve(vert)
+        if not dissolve_success:
+            raise Exception('Rip Down dissolve of original vertex did not work')
         
         return new_verts
 
