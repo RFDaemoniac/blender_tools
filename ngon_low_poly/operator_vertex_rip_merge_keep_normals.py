@@ -4,7 +4,7 @@ from bpy_extras import view3d_utils
 from bpy.props import BoolProperty
 
 def menu_draw(self, context):
-    self.layout.operator("mesh.rip_for_face_normals")
+    self.layout.operator("mesh.vertex_rip_merge_keep_normals")
 
 def ray_cast_get_face_index(context, event):
     # get the context arguments
@@ -36,11 +36,10 @@ def rip(mesh, vert, face, up):
     ext_verts = [next(v for v in e.verts if v != vert) for e in ext_edges]
     
     if up:
-        new_edges, new_verts = []
+        new_verts = []
         for e in ext_edges:
             # TODO: check split location, should it be 0.0 or 1.0?
             new_edge, new_vert = bmesh.utils.edge_split(e, vert, 0.0)
-            new_edges.append(new_edge)
             new_verts.append(new_vert)
             
         # pointmerge doesn't return the new vertex (for some reason ?!)
@@ -54,10 +53,10 @@ def rip(mesh, vert, face, up):
         
         return vert
     else:
-        new_edges, new_verts = []
+        new_verts = []
         for e in ext_edges:
+            # TODO: check split location, should it be 0.0 or 1.0?
             new_edge, new_vert = bmesh.utils.edge_split(e, vert, 0.0)
-            new_edges.append(new_edge)
             new_verts.append(new_vert)
             
         # is this return accessed with ['edges']?
@@ -71,9 +70,6 @@ def rip(mesh, vert, face, up):
         
         return new_verts
 
-def merge(mesh, verts, face):
-    pass
-        
 
 def split(context, event, up):
     mesh = bmesh.from_edit_mesh(context.active_object.data)
@@ -121,8 +117,8 @@ def split(context, event, up):
 
 class VertexRipForFace(bpy.types.Operator):
     """Vertex Rip to edit one face normal while leaving the others the same"""
-    bl_idname = "mesh.rip_for_face_normals"
-    bl_label = "Vertex Rip For Face Normals"
+    bl_idname = "mesh.vertex_rip_merge_keep_normals"
+    bl_label = "Vertex Rip/Merge w/ Keep Normals"
     bl_options = {'REGISTER', 'UNDO'}
     
     # exposed properties 
